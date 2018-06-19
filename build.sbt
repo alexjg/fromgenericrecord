@@ -5,7 +5,7 @@ lazy val root = (project in file(".")).
     inThisBuild(List(
       organization := "org.memoryandthought",
       scalaVersion := "2.12.6",
-      version      := "0.1.0-SNAPSHOT"
+      version      := "0.0.1"
     )),
     name := "fromgenericrecord",
     addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
