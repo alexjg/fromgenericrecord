@@ -1,5 +1,6 @@
 package fromgenericrecord
 
+import org.apache.avro.util.Utf8
 import org.apache.avro.generic.GenericRecord
 import shapeless._
 import shapeless.labelled._
@@ -29,12 +30,23 @@ object ReadField {
     }
   }
 
-  implicit val string: ReadField[String] = fromTypeable
+  // Convert Utf8 to String
+  implicit val string: ReadField[String] = required {
+    (key, any) => {
+      any match {
+        case s: String => Right(s)
+        case u: Utf8 => Right(u.toString())
+        case z => Left(s"Expected string or Utf8, got ${z.getClass}")
+      }
+    }
+  }
+
   implicit val bool: ReadField[Boolean] = fromTypeable
   implicit val int: ReadField[Integer] = fromTypeable
   implicit val long: ReadField[Long] = fromTypeable
   implicit val float: ReadField[Float] = fromTypeable
   implicit val double: ReadField[Double] = fromTypeable
+  implicit val utf8: ReadField[Utf8] = fromTypeable
 
   implicit val byteArray: ReadField[Array[Byte]] = required {
     (key, any) => {

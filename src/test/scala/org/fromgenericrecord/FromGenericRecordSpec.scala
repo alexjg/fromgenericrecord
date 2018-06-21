@@ -4,6 +4,7 @@ import org.scalacheck.Properties
 import org.scalacheck.Prop.forAll
 import org.apache.avro.SchemaBuilder
 import org.apache.avro.Schema
+import org.apache.avro.util.Utf8
 import org.apache.avro.generic.{GenericRecord, GenericData}
 import shapeless._
 import org.scalacheck.{Gen, Arbitrary}
@@ -132,6 +133,30 @@ object FromGenericRecordSpecification extends Properties("FromGenericRecord") {
 
   property("encoding and decoding nested schemas should result in the same object") = forAll { (r: NestedSchemaTest) =>
     FromGenericRecord[NestedSchemaTest].decode(encodeNestedSchemaTest(r)) == Right(r)
+  }
+
+  case class Utf8TestCaseClass(value: String)
+
+  lazy val utf8TestSchema: Schema = {
+    SchemaBuilder
+      .record("utf8test")
+        .fields()
+          .name("value").`type`().stringType().noDefault()
+      .endRecord()
+  }
+
+  def encodeUtf8TestRecord(r: Utf8TestCaseClass): GenericRecord = {
+    val rec = new GenericData.Record(utf8TestSchema)
+    rec.put("value", new Utf8(r.value))
+    rec
+  }
+
+  implicit def arbitraryUtf8Test: Arbitrary[Utf8TestCaseClass] = Arbitrary {
+    arbitrary[String].flatMap(Utf8TestCaseClass(_))
+  }
+
+  property("Utf8 should be decoded to string") = forAll { (r: Utf8TestCaseClass) =>
+    FromGenericRecord[Utf8TestCaseClass].decode(encodeUtf8TestRecord(r)) == Right(r)
   }
 
 }
