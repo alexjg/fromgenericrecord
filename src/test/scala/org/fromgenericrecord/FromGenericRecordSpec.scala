@@ -159,4 +159,37 @@ object FromGenericRecordSpecification extends Properties("FromGenericRecord") {
     FromGenericRecord[Utf8TestCaseClass].decode(encodeUtf8TestRecord(r)) == Right(r)
   }
 
+  case class ArrayTestItem(name: String)
+  case class ArrayTestOuter(inner: Seq[ArrayTestItem])
+
+  lazy val arrayTestSchema: Schema = {
+    SchemaBuilder
+      .record("arraytest")
+        .fields()
+          .name("inner").`type`().array().items()
+            .record("itemSchema").fields().name("name").`type`().stringType().noDefault().endRecord.noDefault()
+        .endRecord()
+  }
+
+  def encodeArrayTestRecord(r: ArrayTestOuter): GenericRecord = {
+    val itemSchema = arrayTestSchema.getField("inner").schema().getElementType()
+    val items: Array[GenericRecord] = r.inner.map(i => {
+      val rec = new GenericData.Record(itemSchema)
+      rec.put("name", i.name)
+      rec
+    }).toArray
+    val rec = new GenericData.Record(arrayTestSchema)
+    rec.put("inner", items)
+    rec
+  }
+
+  implicit def arbitraryArrayItem: Arbitrary[ArrayTestOuter] = Arbitrary {
+    arbitrary[Array[String]].flatMap(names => ArrayTestOuter(names.map(i => ArrayTestItem(i))))
+  }
+
+  property("Arrays should be decoded") = forAll { (r: ArrayTestOuter) =>
+    FromGenericRecord[ArrayTestOuter].decode(encodeArrayTestRecord(r)) == Right(r)
+  }
+
+
 }
