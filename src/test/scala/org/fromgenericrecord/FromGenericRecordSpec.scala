@@ -172,12 +172,14 @@ object FromGenericRecordSpecification extends Properties("FromGenericRecord") {
   }
 
   def encodeArrayTestRecord(r: ArrayTestOuter): GenericRecord = {
-    val itemSchema = arrayTestSchema.getField("inner").schema().getElementType()
-    val items: Array[GenericRecord] = r.inner.map(i => {
+    val itemsSchema = arrayTestSchema.getField("inner").schema()
+    val itemSchema = itemsSchema.getElementType()
+    val items = new GenericData.Array[GenericRecord](r.inner.length, itemsSchema)
+    r.inner.foreach { i =>
       val rec = new GenericData.Record(itemSchema)
       rec.put("name", i.name)
-      rec
-    }).toArray
+      items.add(rec)
+    }
     val rec = new GenericData.Record(arrayTestSchema)
     rec.put("inner", items)
     rec

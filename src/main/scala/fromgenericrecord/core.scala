@@ -2,7 +2,7 @@ package fromgenericrecord
 
 import java.util.ArrayList
 import org.apache.avro.util.Utf8
-import org.apache.avro.generic.GenericRecord
+import org.apache.avro.generic.{GenericRecord, GenericData}
 import scala.language.implicitConversions
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
@@ -68,7 +68,7 @@ object Read {
   implicit def array[T: ClassTag](implicit v: Read[T]): Read[Seq[T]] = new Read[Seq[T]] {
     def apply(any: Any): Either[String, Seq[T]] = {
       any match {
-        case a: Array[_] => sequence(a.map(i => v(i)))
+        case a: GenericData.Array[_] => sequence(a.asScala.map(i => v(i)))
         case s => Left(s"Expected array, got ${s.getClass}")
       }
     }
