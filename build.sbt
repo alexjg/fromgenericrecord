@@ -7,7 +7,6 @@ lazy val publishSettings = Seq(
   homepage := Some(url(s"https://github.com/$username/$repo")),
   licenses += "MIT" -> url(s"https://github.com/$username/$repo/blob/master/LICENSE"),
   scmInfo := Some(ScmInfo(url(s"https://github.com/$username/$repo"), s"git@github.com:$username/$repo.git")),
-  releaseCrossBuild := true,
   releasePublishArtifactsAction := PgpKeys.publishSigned.value,
   developers := List(
     Developer(id = username,
