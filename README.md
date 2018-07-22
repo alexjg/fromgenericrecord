@@ -1,6 +1,6 @@
 # What is this
 
-A very small library using Shapeless to map Apache Avro `GenericRecord`s to Scala case classes.
+A very small library using Shapeless to map Apache Avro `GenericRecord`s to Scala case classes. This might be useful in production but it's mainly an excuse for me to do something non-trivial with Shapeless.
 
 ## The Problem
 
