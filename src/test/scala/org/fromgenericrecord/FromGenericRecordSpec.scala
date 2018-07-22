@@ -10,6 +10,7 @@ import shapeless._
 import org.scalacheck.{Gen, Arbitrary}
 import Gen._
 import Arbitrary.arbitrary
+import scala.reflect.runtime.universe._
 
 object FromGenericRecordSpecification extends Properties("FromGenericRecord") {
 
@@ -191,6 +192,64 @@ object FromGenericRecordSpecification extends Properties("FromGenericRecord") {
 
   property("Arrays should be decoded") = forAll { (r: ArrayTestOuter) =>
     FromGenericRecord[ArrayTestOuter].decode(encodeArrayTestRecord(r)) == Right(r)
+  }
+
+  sealed trait UnionTest
+  case class UnionOptionOneTest(name: String) extends UnionTest
+  case class UnionOptionTwoTest(value: Float) extends UnionTest
+  case class UnionOuterTest(inner: UnionTest)
+
+  lazy val unionTestSchema: Schema = {
+    SchemaBuilder
+      .record("unionTest")
+      .fields()
+        .name("inner").`type`()
+          .unionOf()
+            .record("UnionOptionOne")
+              .fields()
+                .name("name").`type`().stringType().noDefault()
+            .endRecord().and()
+            .record("UnionOptionTwo")
+              .fields()
+                .name("value").`type`().floatType().noDefault()
+            .endRecord()
+          .endUnion().noDefault()
+      .endRecord()
+  }
+
+  def encodeUnionTest(r: UnionOuterTest): GenericRecord = {
+    val rec = new GenericData.Record(unionTestSchema)
+    val innerOneIndex = unionTestSchema.getField("inner").schema().getIndexNamed("UnionOptionOne")
+    val innerOneSchema = unionTestSchema.getField("inner").schema().getTypes.get(innerOneIndex)
+    val innerTwoIndex = unionTestSchema.getField("inner").schema().getIndexNamed("UnionOptionTwo")
+    val innerTwoSchema = unionTestSchema.getField("inner").schema().getTypes.get(innerTwoIndex)
+    val innerField = r.inner match {
+      case UnionOptionOneTest(n) => {
+        val oneRec = new GenericData.Record(innerOneSchema)
+        oneRec.put("name", n)
+        oneRec
+      }
+      case UnionOptionTwoTest(v) => {
+        val twoRec = new GenericData.Record(innerTwoSchema)
+        twoRec.put("value", v)
+        twoRec
+      }
+    }
+    rec.put("inner", innerField)
+    rec
+  }
+
+  implicit def arbitraryUnionTest[UnionOuterTest] = Arbitrary {
+    for {
+      op1 <- arbitrary[String].flatMap(UnionOptionOneTest(_))
+      op2 <- arbitrary[Float].flatMap(UnionOptionTwoTest(_))
+      i <- Gen.oneOf[UnionTest](op1, op2)
+    } yield UnionOuterTest(i)
+  }
+
+  property("Unions should be decoded as case classes") = forAll { (r: UnionOuterTest) =>
+    val d2  = FromGenericRecord[UnionOuterTest]
+    d2.decode(encodeUnionTest(r)) == Right(r)
   }
 
 

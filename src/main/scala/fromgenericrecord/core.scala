@@ -108,26 +108,60 @@ object ReadField {
 object FromGenericRecord {
   def apply[A](implicit decoder: FromGenericRecord[A]): FromGenericRecord[A] = decoder
 
+  implicit val cnil: FromGenericRecord[CNil] = new FromGenericRecord[CNil] {
+    def decode(record: GenericRecord): Either[String, CNil] = {
+      Left("Unable to parse coproduct")
+    }
+  }
+
+  implicit  def coproduct[K <: Symbol, H, T <: Coproduct](implicit
+    key: Witness.Aux[K],
+    readH: Lazy[FromGenericRecord[H]],
+    readT: FromGenericRecord[T]
+    ): FromGenericRecord[FieldType[K, H] :+: T]  = new FromGenericRecord[FieldType[K, H] :+: T] {
+      def decode(record: GenericRecord): Either[String, FieldType[K, H] :+: T] = {
+        val hResult = readH.value.decode(record)
+        hResult match {
+          case Right(r) => Right(Inl(field[K](r)))
+          case Left(e) => {
+            val lResult = readT.decode(record)
+            lResult match {
+              case Right(lr) => Right(Inr(lr))
+              case Left(e) => Left("Unable to parse coproduct")
+            }
+          }
+        }
+      }
+    }
+
   implicit val hnil: FromGenericRecord[HNil] = new FromGenericRecord[HNil] {
     def decode(record: GenericRecord): Either[String, HNil] = Right(HNil)
   }
 
   implicit  def hcons[K <: Symbol, H, T <: HList](implicit
     key: Witness.Aux[K],
-    readH: ReadField[H],
+    readH: Lazy[ReadField[H]],
     readT: FromGenericRecord[T]
     ): FromGenericRecord[FieldType[K, H] :: T]  = new FromGenericRecord[FieldType[K, H] :: T] {
       def decode(record: GenericRecord): Either[String, FieldType[K, H] :: T] = {
         for {
-          headResult <- readH(key.value.name, record).map(v => field[K](v))
+          headResult <- readH.value(key.value.name, record).map(v => field[K](v))
           tailResult <- readT.decode(record)
         } yield (headResult :: tailResult)
       }
     }
 
-  implicit def generic[A, H](implicit
+
+  implicit def genericProduct[A, H](implicit
     gen: LabelledGeneric.Aux[A, H],
     readL: FromGenericRecord[H]
+  ): FromGenericRecord[A] = new FromGenericRecord[A] {
+    def decode(record: GenericRecord): Either[String, A] = readL.decode(record).map(gen.from)
+  }
+
+  implicit def genericCoproduct[A, C <: Coproduct](implicit
+    gen: LabelledGeneric.Aux[A, C],
+    readL: FromGenericRecord[C]
   ): FromGenericRecord[A] = new FromGenericRecord[A] {
     def decode(record: GenericRecord): Either[String, A] = readL.decode(record).map(gen.from)
   }
